@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>CCTV System</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+
+    h2 {
+      margin: 15px;
+    }
+
+    button {
+      padding: 15px 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .cam { background: green; color: white; }
+    .view { background: blue; color: white; }
+
+    video {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 10px;
+      border-radius: 10px;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+
+<body>
+
+<h2>📷 CCTV SYSTEM</h2>
+
+<div id="menu">
+  <button class="cam" onclick="startCamera()">📷 Camera Mode</button>
+  <button class="view" onclick="startView()">📺 View Mode</button>
+</div>
+
+<!-- CAMERA -->
+<div id="cameraBox" class="hidden">
+  <h3>📷 CAMERA MODE</h3>
+  <video id="localVideo" autoplay playsinline></video>
+</div>
+
+<!-- VIEW -->
+<div id="viewBox" class="hidden">
+  <h3>📺 VIEW MODE</h3>
+  <video id="remoteVideo" autoplay playsinline></video>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const room = "cctv1";
+
+let peer;
+let stream;
+
+/* ================= UI ================= */
+function hideMenu() {
+  document.getElementById("menu").style.display = "none";
+}
+
+function showCameraUI() {
+  hideMenu();
+  document.getElementById("cameraBox").classList.remove("hidden");
+}
+
+function showViewUI() {
+  hideMenu();
+  document.getElementById("viewBox").classList.remove("hidden");
+}
+
+/* ================= CAMERA ================= */
+async function startCamera() {
+  showCameraUI();
+
+  socket.emit("join", room);
+
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: false
+  });
+
+  document.getElementById("localVideo").srcObject = stream;
+
+  peer = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }
+    ]
+  });
+
+  stream.getTracks().forEach(track => {
+    peer.addTrack(track, stream);
+  });
+
+  peer.onicecandidate = (e) => {
+    if (e.candidate) {
+      socket.emit("signal", {
+        room,
+        message: { candidate: e.candidate }
+      });
+    }
+  };
+
+  const offer = await peer.createOffer();
+  await peer.setLocalDescription(offer);
+
+  socket.emit("signal", {
+    room,
+    message: { offer }
+  });
+
+  socket.on("signal", async (data) => {
+    if (data.answer) {
+      await peer.setRemoteDescription(data.answer);
+    }
+
+    if (data.candidate) {
+      await peer.addIceCandidate(data.candidate);
+    }
+  });
+}
+
+/* ================= VIEW ================= */
+function startView() {
+  showViewUI();
+
+  socket.emit("join", room);
+
+  peer = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }
+    ]
+  });
+
+  peer.ontrack = (e) => {
+    document.getElementById("remoteVideo").srcObject = e.streams[0];
+  };
+
+  peer.onicecandidate = (e) => {
+    if (e.candidate) {
+      socket.emit("signal", {
+        room,
+        message: { candidate: e.candidate }
+      });
+    }
+  };
+
+  socket.on("signal", async (data) => {
+    if (data.offer) {
+      await peer.setRemoteDescription(data.offer);
+
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+
+      socket.emit("signal", {
+        room,
+        message: { answer }
+      });
+    }
+
+    if (data.candidate) {
+      await peer.addIceCandidate(data.candidate);
+    }
+  });
+}
+</script>
+
+</body>
+</html>
