@@ -1,5 +1,5 @@
 {
-  "name": "cctv-live",
+  "name": "multi-cctv",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
