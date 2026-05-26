@@ -2,84 +2,117 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Viewer Dashboard</title>
+<title>Viewer</title>
 
 <style>
 body{
   margin:0;
   background:#111;
   color:white;
+  text-align:center;
   font-family:Arial;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:10px;
-  padding:10px;
 }
 
 video{
   width:100%;
+  max-width:700px;
+  margin-top:10px;
+  border-radius:10px;
   background:black;
+}
+
+input{
+  padding:10px;
+  font-size:18px;
+}
+
+button{
+  padding:10px 20px;
+  font-size:18px;
+  cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<h2 style="text-align:center;">📺 MULTI CCTV DASHBOARD</h2>
+<h2>📺 VIEW CAMERA</h2>
 
-<div class="grid">
+<input id="cameraId" placeholder="cam1">
 
-  <video id="cam1" autoplay playsinline></video>
-  <video id="cam2" autoplay playsinline></video>
-  <video id="cam3" autoplay playsinline></video>
-  <video id="cam4" autoplay playsinline></video>
+<button onclick="startViewer()">
+CONNECT
+</button>
 
-</div>
+<br><br>
+
+<video id="remoteVideo" autoplay playsinline controls></video>
 
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 const socket = io();
 
-const cameras = ["cam1","cam2","cam3","cam4"];
+let peer;
 
-cameras.forEach(startViewer);
+/* ================= START VIEWER ================= */
 
-function startViewer(cameraId){
+function startViewer(){
 
-  socket.emit("join-camera", cameraId);
+  const cameraId =
+    document.getElementById("cameraId").value;
 
-  const peer = new RTCPeerConnection({
+  if(!cameraId){
+    alert("Enter camera ID");
+    return;
+  }
+
+  socket.emit("viewer-join", cameraId);
+
+  peer = new RTCPeerConnection({
     iceServers:[
-      { urls:"stun:stun.l.google.com:19302" }
+      {
+        urls:"stun:stun.l.google.com:19302"
+      }
     ]
   });
 
+  /* RECEIVE VIDEO */
+
   peer.ontrack = e => {
-    document.getElementById(cameraId).srcObject = e.streams[0];
+
+    document.getElementById("remoteVideo")
+      .srcObject = e.streams[0];
+
   };
 
+  /* SEND ICE */
+
   peer.onicecandidate = e => {
+
     if(e.candidate){
+
       socket.emit("signal",{
         cameraId,
         candidate:e.candidate
       });
+
     }
+
   };
+
+  /* RECEIVE SIGNAL */
 
   socket.on("signal", async data => {
 
-    if(data.cameraId !== cameraId) return;
-
     if(data.offer){
 
-      await peer.setRemoteDescription(data.offer);
+      await peer.setRemoteDescription(
+        new RTCSessionDescription(data.offer)
+      );
 
-      const answer = await peer.createAnswer();
+      const answer =
+        await peer.createAnswer();
 
       await peer.setLocalDescription(answer);
 
@@ -91,7 +124,12 @@ function startViewer(cameraId){
     }
 
     if(data.candidate){
-      await peer.addIceCandidate(data.candidate);
+
+      try{
+        await peer.addIceCandidate(
+          new RTCIceCandidate(data.candidate)
+        );
+      }catch(err){}
     }
 
   });
