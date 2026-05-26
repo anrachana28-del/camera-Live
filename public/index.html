@@ -1,56 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>CCTV System</title>
+<meta charset="UTF-8">
+<title>LIVE CCTV SYSTEM</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #111;
-      color: white;
-      text-align: center;
-    }
+<style>
+body {
+  margin:0;
+  font-family: Arial;
+  background:#111;
+  color:white;
+  text-align:center;
+}
 
-    h2 {
-      margin: 15px;
-    }
+button {
+  padding:15px 20px;
+  margin:10px;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  cursor:pointer;
+}
 
-    button {
-      padding: 15px 20px;
-      margin: 10px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
+.cam { background:green; color:white; }
+.view { background:blue; color:white; }
 
-    .cam { background: green; color: white; }
-    .view { background: blue; color: white; }
+video {
+  width:100%;
+  max-width:500px;
+  margin-top:10px;
+  border-radius:10px;
+}
 
-    video {
-      width: 100%;
-      max-width: 500px;
-      margin-top: 10px;
-      border-radius: 10px;
-    }
-
-    .hidden { display: none; }
-  </style>
+.hidden { display:none; }
+</style>
 </head>
 
 <body>
 
-<h2>📷 CCTV SYSTEM</h2>
+<h2>📡 LIVE CCTV SYSTEM</h2>
 
-<div id="menu">
-  <button class="cam" onclick="startCamera()">📷 Camera Mode</button>
-  <button class="view" onclick="startView()">📺 View Mode</button>
-</div>
+<button class="cam" onclick="startCamera()">📷 Camera (A)</button>
+<button class="view" onclick="startView()">📺 View (B)</button>
+
+<br>
 
 <!-- CAMERA -->
-<div id="cameraBox" class="hidden">
+<div id="camBox" class="hidden">
   <h3>📷 CAMERA MODE</h3>
   <video id="localVideo" autoplay playsinline></video>
 </div>
@@ -69,24 +65,9 @@ const room = "cctv1";
 let peer;
 let stream;
 
-/* ================= UI ================= */
-function hideMenu() {
-  document.getElementById("menu").style.display = "none";
-}
-
-function showCameraUI() {
-  hideMenu();
-  document.getElementById("cameraBox").classList.remove("hidden");
-}
-
-function showViewUI() {
-  hideMenu();
-  document.getElementById("viewBox").classList.remove("hidden");
-}
-
-/* ================= CAMERA ================= */
+/* ================= CAMERA (A) ================= */
 async function startCamera() {
-  showCameraUI();
+  document.getElementById("camBox").classList.remove("hidden");
 
   socket.emit("join", room);
 
@@ -135,9 +116,9 @@ async function startCamera() {
   });
 }
 
-/* ================= VIEW ================= */
+/* ================= VIEW (B) ================= */
 function startView() {
-  showViewUI();
+  document.getElementById("viewBox").classList.remove("hidden");
 
   socket.emit("join", room);
 
@@ -161,6 +142,7 @@ function startView() {
   };
 
   socket.on("signal", async (data) => {
+
     if (data.offer) {
       await peer.setRemoteDescription(data.offer);
 
