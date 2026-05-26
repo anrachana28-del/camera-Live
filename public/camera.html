@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Camera</title>
+</head>
+
+<body>
+
+<h2>📷 CAMERA DEVICE</h2>
+
+<input id="camId" placeholder="cam1">
+<button onclick="start()">START CAMERA</button>
+
+<br><br>
+
+<video id="video" autoplay playsinline width="300"></video>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+const socket = io();
+
+let peer;
+let stream;
+
+async function start() {
+
+  const cameraId = document.getElementById("camId").value;
+
+  socket.emit("join-camera", cameraId);
+
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: false
+  });
+
+  document.getElementById("video").srcObject = stream;
+
+  peer = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }
+    ]
+  });
+
+  stream.getTracks().forEach(track => {
+    peer.addTrack(track, stream);
+  });
+
+  peer.onicecandidate = e => {
+    if (e.candidate) {
+      socket.emit("signal", {
+        cameraId,
+        candidate: e.candidate
+      });
+    }
+  };
+
+  const offer = await peer.createOffer();
+
+  await peer.setLocalDescription(offer);
+
+  socket.emit("signal", {
+    cameraId,
+    offer
+  });
+
+  socket.on("signal", async data => {
+
+    if (data.answer) {
+      await peer.setRemoteDescription(data.answer);
+    }
+
+    if (data.candidate) {
+      await peer.addIceCandidate(data.candidate);
+    }
+
+  });
+
+}
+</script>
+
+</body>
+</html>
